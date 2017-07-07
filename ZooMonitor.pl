@@ -5,6 +5,8 @@ use IO::Socket::INET;
 use IO::Handle;
 use Getopt::Long;
 use Pod::Usage;
+use Net::Ping;
+use Data::Dumper;
 
 BEGIN {
 	use constant {
@@ -55,17 +57,70 @@ sub parseOptions {
 	return (TRUE);
 }
 
+sub checkPing {
+	my $host = shift;
+	my $p    = Net::Ping->new();
+
+	unless ( $p->ping($host) ) {
+		return (FALSE);
+	}
+
+	$p->close();
+
+	return (TRUE);
+}
+
 sub checkZooHosts {
 	our %Options;
+	my $nb = 0;
 
 	if ( $Options{'zkhost'} =~ /,/ ) {
 		my @ServerList = split( /,/, $Options{'zkhost'} );
+		my @tmp = @ServerList;
+		foreach my $host (@ServerList) {
+			unless ( checkPing($host) ) {
+				print STDERR "[ERROR]["
+				  . localtime()
+				  . "] $host is unreachable and will not be checked.\n";
 
-		foreach my $Server (@ServerList) {
-
+				#Removes servers that do not respond ($nb must stay at this value):
+				splice( @tmp, $nb, 1 );
+			}
+			else {
+				# One element is valid so we push nb to the next value to keep it:
+				  $nb++;
+			}
+		}
+		if ( scalar(@tmp) ) {
+			$Options{'zkhost'}     = undef;
+			$Options{'zkhost'}     = @tmp;
+			$Options{'zkmultihosts'} = TRUE;
+			undef @tmp;
+			undef @ServerList;
+		}
+		else {
+			print STDERR "[ERROR]["
+			  . localtime()
+			  . "] No valid host found in $Options{'zkhost'}.\n";
+			exit(ERROR_NAGIOS);
 		}
 	}
+	else {
+		unless ( checkPing( $Options{'zkhost'} ) ) {
+			print STDERR "[ERROR]["
+			  . localtime()
+			  . "] $Options{'zkhost'} is unreachable.\n";
+			exit(ERROR_NAGIOS);
+		}
+	}
+	return (TRUE);
+}
 
+sub processCommandOnZooHosts {
+	our %Options;
+	
+	
+	
 	return (TRUE);
 }
 
@@ -75,6 +130,8 @@ sub Main {
 	parseOptions();
 
 	checkZooHosts();
+	
+	processCommandOnZooHosts();
 
 	exit(0);
 }
@@ -94,6 +151,8 @@ __END__
 =head1 USAGE
 
 	ZooMonitor --zkhost=zookeeper-naming-uat01 --zkport=10000 --flw=mntr
+	
+	ZooMonitor --zkhost=zookeeper-naming-uat01,zookeeper-naming-uat02,zookeeper-naming-uat03 --zkport=10000 --flw=mntr
 	
 =head1 REQUIRED ARGUMENTS
 
