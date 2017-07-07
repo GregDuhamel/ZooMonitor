@@ -1,5 +1,7 @@
 # ZooMonitor
-ZooMonitor - Monitor ZooKeeper using 4 letter words as described in ZooKeeper documentation
+ZooMonitor - Monitor ZooKeeper using 4 letter words as described in ZooKeeper documentation.
+
+ZooMonitor will exit with according Nagios Status if any issue is encountered.
 
 NAME
 
