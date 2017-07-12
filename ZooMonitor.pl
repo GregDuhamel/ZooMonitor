@@ -91,11 +91,8 @@ sub checkZooHosts {
 			}
 		}
 		if ( scalar(@tmp) ) {
-			$Options{'zkhost'}       = undef;
-			$Options{'zkhost'}       = @tmp;
+			$Options{'zkhost'}       = \@tmp;
 			$Options{'zkmultihosts'} = TRUE;
-			undef @tmp;
-			undef @ServerList;
 		}
 		else {
 			print STDERR "[ERROR]["
@@ -166,8 +163,34 @@ sub sendCommand {
 }
 
 sub parseResult {
+	our %Options;
 	our %CommandResult;
-	return(TRUE);
+	my $error_flag;
+
+	foreach my $key ( sort( keys %CommandResult ) ) {
+		if ( exists $CommandResult{$key} && defined $CommandResult{$key} ) {
+			if ( $Options{flw} =~ "ruok" && $CommandResult{$key} =~ "imok" ) {
+				print STDOUT "[INFO]["
+				  . localtime()
+				  . "] ZkHost $key is anwsering correctly.\n";
+			}
+			elsif ( $Options{flw} =~ "mntr" ) {
+				print STDOUT "[INFO]["
+				  . localtime()
+				  . "]\n $CommandResult{$key} \n";
+			}
+			else {
+				$error_flag = TRUE;
+				print STDERR "[ERROR]["
+				  . localtime()
+				  . "] Wrong result for $Options{'flw'} on host $key. Please have a look.\n";
+			}
+		}
+	}
+	if ($error_flag) {
+		exit(ERROR_NAGIOS);
+	}
+	return (TRUE);
 }
 
 sub processCommandOnZooHosts {
@@ -175,25 +198,21 @@ sub processCommandOnZooHosts {
 	our %CommandResult;
 
 	if ( $Options{'zkmultihosts'} ) {
-		my @Hosts = $Options{'zkmultihosts'};
-
-		foreach my $host (@Hosts) {
+		foreach my $host ( @{ $Options{'zkhost'} } ) {
 			unless ( $CommandResult{$host} = sendCommand($host) ) {
 				$CommandResult{$host} = ERROR_NAGIOS;
 			}
 		}
-		parseResult();
 	}
 	else {
 		unless ( $CommandResult{ $Options{'zkhost'} } =
 			sendCommand( $Options{'zkhost'} ) )
 		{
 			print STDERR "[ERROR]["
-		  . localtime()
-		  . "] Can't process command $Options{'flw'}.\n";
-			exit (ERROR_NAGIOS);
+			  . localtime()
+			  . "] Can't process command $Options{'flw'}.\n";
+			exit(ERROR_NAGIOS);
 		}
-		parseResult();
 	}
 	return (TRUE);
 }
@@ -208,7 +227,9 @@ sub Main {
 
 	processCommandOnZooHosts();
 
-	exit(0);
+	parseResult();
+
+	exit(OK_NAGIOS);
 }
 
 Main();
