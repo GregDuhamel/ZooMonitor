@@ -162,6 +162,18 @@ sub sendCommand {
 	return ($response);
 }
 
+sub parseMonitorAction {
+	my $mntr_result = shift;
+
+	foreach ( split( /\n/, $mntr_result ) ) {
+		if ( /START/ .. /END/ ) {
+			next if /START/ || /END/;
+			print;
+		}
+	}
+	return (TRUE);
+}
+
 sub parseResult {
 	our %Options;
 	our %CommandResult;
@@ -178,6 +190,7 @@ sub parseResult {
 				print STDOUT "[INFO]["
 				  . localtime()
 				  . "]\n $CommandResult{$key} \n";
+				parseMonitorAction( $CommandResult{$key} );
 			}
 			else {
 				$error_flag = TRUE;
